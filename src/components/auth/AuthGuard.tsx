@@ -158,23 +158,6 @@ export function AuthGuard({
               Sign In to Continue
             </button>
             
-            <button
-              onClick={() => auth.startDemoSession()}
-              className="w-full transition-all duration-300"
-              style={{
-                backgroundColor: 'transparent',
-                color: 'var(--ff-secondary)',
-                fontFamily: 'var(--ff-font-primary)',
-                fontSize: 'var(--ff-text-sm)',
-                fontWeight: 'var(--ff-weight-medium)',
-                padding: 'var(--ff-space-2) var(--ff-space-4)',
-                borderRadius: 'var(--ff-radius)',
-                border: '1px solid var(--ff-secondary)',
-                cursor: 'pointer'
-              }}
-            >
-              Try Demo Mode
-            </button>
           </div>
         </div>
       </div>

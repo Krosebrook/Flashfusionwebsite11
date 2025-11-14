@@ -8,16 +8,33 @@
  * Utilities for managing authentication state and route protection
  */
 
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
+
+// Authentication user details derived from Supabase session claims
+export interface AuthUser {
+  id: string;
+  email: string | null;
+  role: string;
+  roles: string[];
+  appMetadata: Record<string, unknown>;
+  userMetadata: Record<string, unknown>;
+  app_metadata: Record<string, unknown>;
+  user_metadata: Record<string, unknown>;
+  rawUser: Session['user'];
+}
+
 // Authentication state interface
 export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: any;
+  user: AuthUser | null;
+  session: Session | null;
   error?: string;
 }
 
 // Route protection levels
-export type RouteProtectionLevel = 'public' | 'protected' | 'admin' | 'demo';
+export type RouteProtectionLevel = 'public' | 'protected' | 'admin';
 
 // Public routes that don't require authentication
 export const PUBLIC_ROUTES = [
@@ -65,97 +82,59 @@ export const ADMIN_ROUTES = [
 /**
  * Check if user is authenticated based on stored tokens
  */
-export function checkAuthenticationStatus(): Promise<AuthState> {
-  return new Promise((resolve) => {
-    try {
-      // Check multiple storage locations for auth data
-      const authToken = 
-        localStorage.getItem('ff-auth-token') || 
-        sessionStorage.getItem('ff-auth-token') ||
-        localStorage.getItem('supabase.auth.token') ||
-        localStorage.getItem('auth-token');
+export async function checkAuthenticationStatus(): Promise<AuthState> {
+  try {
+    const { data, error } = await supabase.auth.getSession();
 
-      const userData = 
-        localStorage.getItem('ff-user-data') ||
-        localStorage.getItem('user-data') ||
-        sessionStorage.getItem('ff-user-data');
-
-      if (authToken && userData) {
-        try {
-          const user = JSON.parse(userData);
-          
-          // Validate token format (basic check)
-          if (typeof authToken === 'string' && authToken.length > 10) {
-            resolve({
-              isAuthenticated: true,
-              isLoading: false,
-              user
-            });
-            return;
-          }
-        } catch (parseError) {
-          console.warn('Invalid user data in storage:', parseError);
-          // Clear invalid data
-          clearAuthData();
-        }
-      }
-
-      // Check for demo mode or temporary access
-      const demoMode = localStorage.getItem('ff-demo-mode') === 'true';
-      const tempAccess = sessionStorage.getItem('ff-temp-access') === 'true';
-
-      if (demoMode || tempAccess) {
-        resolve({
-          isAuthenticated: true,
-          isLoading: false,
-          user: {
-            id: 'demo-user',
-            name: 'Demo User',
-            email: 'demo@flashfusion.dev',
-            plan: 'demo'
-          }
-        });
-        return;
-      }
-
-      // No valid authentication found
-      resolve({
-        isAuthenticated: false,
-        isLoading: false,
-        user: null
-      });
-    } catch (error) {
-      console.error('Authentication check failed:', error);
-      resolve({
+    if (error) {
+      console.error('Supabase session retrieval failed:', error);
+      return {
         isAuthenticated: false,
         isLoading: false,
         user: null,
-        error: 'Authentication check failed'
-      });
+        session: null,
+        error: error.message
+      };
     }
-  });
+
+    const session = data?.session ?? null;
+
+    if (!session) {
+      return {
+        isAuthenticated: false,
+        isLoading: false,
+        user: null,
+        session: null
+      };
+    }
+
+    return createAuthStateFromSession(session);
+  } catch (error) {
+    console.error('Authentication check failed:', error);
+    return {
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      session: null,
+      error: 'Authentication check failed'
+    };
+  }
 }
 
 /**
  * Clear all authentication data from storage
  */
-export function clearAuthData(): void {
-  // Clear FlashFusion auth data
-  localStorage.removeItem('ff-auth-token');
-  localStorage.removeItem('ff-user-data');
-  sessionStorage.removeItem('ff-auth-token');
-  sessionStorage.removeItem('ff-user-data');
-  
-  // Clear generic auth data
-  localStorage.removeItem('auth-token');
-  localStorage.removeItem('user-data');
-  
-  // Clear Supabase auth data
-  localStorage.removeItem('supabase.auth.token');
-  
-  // Clear temporary access
-  sessionStorage.removeItem('ff-temp-access');
-  localStorage.removeItem('ff-demo-mode');
+export async function clearAuthData(): Promise<void> {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Supabase sign out failed:', error);
+    }
+  } catch (error) {
+    console.error('Failed to clear authentication data:', error);
+  } finally {
+    localStorage.removeItem('ff-show-app');
+  }
 }
 
 /**
@@ -164,12 +143,7 @@ export function clearAuthData(): void {
 export function getRouteProtectionLevel(path?: string): RouteProtectionLevel {
   const currentPath = path || (typeof window !== 'undefined' ? window.location.pathname : '/');
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
-  
-  // Check for demo mode
-  if (searchParams.has('demo') || currentPath.includes('/demo') || localStorage.getItem('ff-demo-mode') === 'true') {
-    return 'demo';
-  }
-  
+
   // Check admin routes
   if (ADMIN_ROUTES.some(route => currentPath.startsWith(route))) {
     return 'admin';
@@ -196,17 +170,14 @@ export function getRouteProtectionLevel(path?: string): RouteProtectionLevel {
 export function hasRoutePermission(authState: AuthState, routeLevel: RouteProtectionLevel): boolean {
   switch (routeLevel) {
     case 'public':
-    case 'demo':
       return true;
-      
+
     case 'protected':
       return authState.isAuthenticated;
-      
+
     case 'admin':
-      return authState.isAuthenticated && 
-             authState.user && 
-             (authState.user.role === 'admin' || authState.user.plan === 'enterprise');
-      
+      return authState.isAuthenticated && authState.user?.roles.includes('admin');
+
     default:
       return false;
   }
@@ -223,59 +194,6 @@ export function getAuthRedirectUrl(intendedPath?: string): string {
 /**
  * Store authentication data securely
  */
-export function storeAuthData(token: string, userData: any, persistent: boolean = true): void {
-  const storage = persistent ? localStorage : sessionStorage;
-  
-  try {
-    storage.setItem('ff-auth-token', token);
-    storage.setItem('ff-user-data', JSON.stringify(userData));
-    
-    // Set show app flag for future visits
-    localStorage.setItem('ff-show-app', 'true');
-  } catch (error) {
-    console.error('Failed to store authentication data:', error);
-  }
-}
-
-/**
- * Validate authentication token format
- */
-export function validateTokenFormat(token: string): boolean {
-  if (!token || typeof token !== 'string') {
-    return false;
-  }
-  
-  // Basic token validation (adjust based on your token format)
-  // JWT tokens typically have 3 parts separated by dots
-  if (token.includes('.')) {
-    const parts = token.split('.');
-    return parts.length === 3 && parts.every(part => part.length > 0);
-  }
-  
-  // Simple token should be at least 20 characters
-  return token.length >= 20;
-}
-
-/**
- * Create demo user session
- */
-export function createDemoSession(): AuthState {
-  sessionStorage.setItem('ff-temp-access', 'true');
-  localStorage.setItem('ff-demo-mode', 'true');
-  
-  return {
-    isAuthenticated: true,
-    isLoading: false,
-    user: {
-      id: 'demo-user',
-      name: 'Demo User',
-      email: 'demo@flashfusion.dev',
-      plan: 'demo',
-      isDemo: true
-    }
-  };
-}
-
 /**
  * Handle authentication state changes
  */
@@ -302,8 +220,8 @@ export function getUserRole(authState: AuthState): string {
   if (!authState.isAuthenticated || !authState.user) {
     return 'guest';
   }
-  
-  return authState.user.role || authState.user.plan || 'user';
+
+  return authState.user.role || 'user';
 }
 
 /**
@@ -313,22 +231,83 @@ export function hasPermission(authState: AuthState, permission: string): boolean
   if (!authState.isAuthenticated || !authState.user) {
     return false;
   }
-  
-  const userRole = getUserRole(authState);
-  
-  // Define role-based permissions
+
+  const roles = authState.user.roles.length > 0 ? authState.user.roles : ['user'];
+
   const rolePermissions: Record<string, string[]> = {
-    admin: ['*'], // Admin has all permissions
-    enterprise: ['create', 'edit', 'delete', 'export', 'collaborate', 'integrate'],
+    admin: ['*'],
+    enterprise: ['create', 'edit', 'delete', 'export', 'collaborate', 'integrate', 'advanced'],
     pro: ['create', 'edit', 'export', 'collaborate'],
-    free: ['create', 'edit'],
-    demo: ['view', 'demo'],
-    guest: []
+    free: ['create', 'edit', 'basic'],
+    user: ['create', 'edit', 'basic']
   };
-  
-  const permissions = rolePermissions[userRole] || [];
-  
-  return permissions.includes('*') || permissions.includes(permission);
+
+  return roles.some(role => {
+    const permissions = rolePermissions[role] || rolePermissions.user;
+    return permissions.includes('*') || permissions.includes(permission);
+  });
+}
+
+/**
+ * Create auth state object from a Supabase session
+ */
+export function createAuthStateFromSession(session: Session): AuthState {
+  const roles = extractRolesFromSession(session);
+
+  const appMetadata = session.user.app_metadata ?? {};
+  const userMetadata = session.user.user_metadata ?? {};
+
+  const user: AuthUser = {
+    id: session.user.id,
+    email: session.user.email ?? null,
+    role: roles[0] ?? 'user',
+    roles,
+    appMetadata,
+    userMetadata,
+    app_metadata: appMetadata,
+    user_metadata: userMetadata,
+    rawUser: session.user
+  };
+
+  return {
+    isAuthenticated: true,
+    isLoading: false,
+    user,
+    session
+  };
+}
+
+function extractRolesFromSession(session: Session): string[] {
+  const appMetadata = session.user.app_metadata ?? {};
+  const userMetadata = session.user.user_metadata ?? {};
+
+  const claimsRole = (appMetadata as Record<string, any>)?.claims?.role;
+  const directRole = (appMetadata as Record<string, any>)?.role ?? userMetadata?.role;
+  const rolesClaim = (appMetadata as Record<string, any>)?.roles ?? userMetadata?.roles;
+
+  const collectedRoles: Array<string | undefined | string[]> = [
+    claimsRole,
+    directRole,
+    rolesClaim
+  ];
+
+  const flattened = collectedRoles.flatMap(entry => {
+    if (!entry) {
+      return [];
+    }
+
+    if (Array.isArray(entry)) {
+      return entry.map(role => String(role).toLowerCase());
+    }
+
+    return [String(entry).toLowerCase()];
+  });
+
+  if (flattened.length === 0) {
+    return ['user'];
+  }
+
+  return Array.from(new Set(flattened));
 }
 
 export default {
@@ -337,9 +316,7 @@ export default {
   getRouteProtectionLevel,
   hasRoutePermission,
   getAuthRedirectUrl,
-  storeAuthData,
-  validateTokenFormat,
-  createDemoSession,
+  createAuthStateFromSession,
   handleAuthStateChange,
   getUserRole,
   hasPermission

@@ -9,31 +9,34 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { 
-  checkAuthenticationStatus, 
-  clearAuthData, 
-  storeAuthData,
+import {
+  checkAuthenticationStatus,
+  clearAuthData,
   getRouteProtectionLevel,
   hasRoutePermission,
-  createDemoSession,
   handleAuthStateChange,
+  createAuthStateFromSession,
   type AuthState,
   type RouteProtectionLevel
 } from '../../utils/auth-protection';
+import { supabase } from '../../lib/supabase';
+
+interface SignInCredentials {
+  email: string;
+  password: string;
+}
 
 interface AuthContextType extends AuthState {
   // Auth actions
-  signIn: (token: string, userData: any, persistent?: boolean) => void;
-  signOut: () => void;
+  signIn: (credentials: SignInCredentials) => Promise<void>;
+  signOut: () => Promise<void>;
   refreshAuth: () => Promise<void>;
-  startDemoSession: () => void;
-  
+
   // Route protection
   getRouteAccess: (path?: string) => { canAccess: boolean; redirectUrl?: string };
   hasPermission: (permission: string) => boolean;
-  
+
   // Utility
-  isDemo: boolean;
   isInitialized: boolean;
 }
 
@@ -51,9 +54,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: true,
-    user: null
+    user: null,
+    session: null
   });
-  
+
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize authentication on mount
@@ -69,6 +73,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isAuthenticated: false,
           isLoading: false,
           user: null,
+          session: null,
           error: 'Authentication initialization failed'
         });
       } finally {
@@ -79,10 +84,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
   }, []);
 
+  // Subscribe to Supabase auth state changes
+  useEffect(() => {
+    const subscription = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        const nextState = createAuthStateFromSession(session);
+        setAuthState(prev => ({ ...nextState, isLoading: false }));
+        handleAuthStateChange(nextState);
+      } else {
+        const signedOutState: AuthState = {
+          isAuthenticated: false,
+          isLoading: false,
+          user: null,
+          session: null
+        };
+        setAuthState(signedOutState);
+        handleAuthStateChange(signedOutState);
+      }
+    });
+
+    return () => {
+      subscription.data?.subscription?.unsubscribe();
+    };
+  }, []);
+
   // Listen for auth state changes from other tabs/windows
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'ff-auth-token' || e.key === 'ff-user-data') {
+      if (e.key === 'supabase.auth.token') {
         refreshAuth();
       }
     };
@@ -101,51 +130,69 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   // Sign in user
-  const signIn = useCallback((token: string, userData: any, persistent: boolean = true) => {
+  const signIn = useCallback(async ({ email, password }: SignInCredentials) => {
+    setAuthState(prev => ({ ...prev, isLoading: true, error: undefined }));
+
     try {
-      storeAuthData(token, userData, persistent);
-      
-      const newAuthState: AuthState = {
-        isAuthenticated: true,
-        isLoading: false,
-        user: userData
-      };
-      
-      setAuthState(newAuthState);
-      handleAuthStateChange(newAuthState);
-      
-      // Redirect to intended destination or dashboard
-      const urlParams = new URLSearchParams(window.location.search);
-      const redirectPath = urlParams.get('redirect') || '/dashboard';
-      
-      if (redirectPath !== window.location.pathname) {
-        window.history.pushState({}, '', redirectPath);
-        window.location.reload(); // Ensure proper route handling
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        throw error;
       }
-    } catch (error) {
+
+      if (data.session) {
+        const newAuthState = createAuthStateFromSession(data.session);
+        setAuthState(newAuthState);
+        handleAuthStateChange(newAuthState);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectPath = urlParams.get('redirect') || '/dashboard';
+
+        if (redirectPath !== window.location.pathname) {
+          window.history.pushState({}, '', redirectPath);
+          window.location.reload();
+        }
+      } else {
+        setAuthState({
+          isAuthenticated: false,
+          isLoading: false,
+          user: null,
+          session: null,
+          error: 'Authentication failed: no session returned'
+        });
+      }
+    } catch (error: any) {
       console.error('Sign in failed:', error);
-      setAuthState(prev => ({ ...prev, error: 'Sign in failed' }));
+      setAuthState({
+        isAuthenticated: false,
+        isLoading: false,
+        user: null,
+        session: null,
+        error: error?.message || 'Sign in failed'
+      });
     }
   }, []);
 
   // Sign out user
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
     try {
-      clearAuthData();
-      
+      await clearAuthData();
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      setAuthState(prev => ({ ...prev, error: 'Sign out failed' }));
+    } finally {
       const newAuthState: AuthState = {
         isAuthenticated: false,
         isLoading: false,
-        user: null
+        user: null,
+        session: null
       };
-      
+
       setAuthState(newAuthState);
       handleAuthStateChange(newAuthState);
-      
-      // Redirect to home page
+
       window.location.href = '/';
-    } catch (error) {
-      console.error('Sign out failed:', error);
     }
   }, []);
 
@@ -158,21 +205,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Auth refresh failed:', error);
       setAuthState(prev => ({ ...prev, error: 'Authentication refresh failed' }));
-    }
-  }, []);
-
-  // Start demo session
-  const startDemoSession = useCallback(() => {
-    try {
-      const demoAuthState = createDemoSession();
-      setAuthState(demoAuthState);
-      handleAuthStateChange(demoAuthState);
-      
-      // Redirect to dashboard in demo mode
-      window.location.href = '/dashboard?demo=true';
-    } catch (error) {
-      console.error('Demo session failed:', error);
-      setAuthState(prev => ({ ...prev, error: 'Demo session failed' }));
     }
   }, []);
 
@@ -204,35 +236,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return false;
     }
     
-    const userRole = authState.user.role || authState.user.plan || 'user';
-    
-    // Define role-based permissions
+    const roles = authState.user.roles.length > 0 ? authState.user.roles : ['user'];
+
+    if (permission === 'admin') {
+      return roles.includes('admin');
+    }
+
     const rolePermissions: Record<string, string[]> = {
       admin: ['*'],
       enterprise: ['create', 'edit', 'delete', 'export', 'collaborate', 'integrate', 'advanced'],
       pro: ['create', 'edit', 'export', 'collaborate'],
       free: ['create', 'edit', 'basic'],
-      demo: ['view', 'demo', 'basic'],
       user: ['create', 'edit', 'basic']
     };
-    
-    const permissions = rolePermissions[userRole] || rolePermissions.user;
-    
-    return permissions.includes('*') || permissions.includes(permission);
+
+    return roles.some(role => {
+      const permissions = rolePermissions[role] || rolePermissions.user;
+      return permissions.includes('*') || permissions.includes(permission);
+    });
   }, [authState]);
 
   // Compute derived values
-  const isDemo = authState.user?.isDemo || authState.user?.plan === 'demo' || false;
-
   const contextValue: AuthContextType = {
     ...authState,
     signIn,
     signOut,
     refreshAuth,
-    startDemoSession,
     getRouteAccess,
     hasPermission: hasPermissionCheck,
-    isDemo,
     isInitialized
   };
 
