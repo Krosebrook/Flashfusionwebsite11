@@ -8,32 +8,8 @@
  * Supabase client setup with proper configuration for authentication
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from './info';
+import { supabase, supabaseConfig } from '../../lib/supabase';
 
-const supabaseUrl = `https://${projectId}.supabase.co`;
-const supabaseKey = publicAnonKey;
-
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'flashfusion-web@1.0.0'
-    }
-  }
-});
-
-// Export configuration for use in components
-export const supabaseConfig = {
-  url: supabaseUrl,
-  key: supabaseKey,
-  projectId
-};
+export { supabase, supabaseConfig };
 
 export default supabase;

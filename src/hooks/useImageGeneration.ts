@@ -48,7 +48,7 @@ import {
   type GenerationError,
   type ImageGenerationPreferences
 } from '../types/image-generation';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { supabaseConfig } from '../lib/supabase';
 
 /**
  * Hook Configuration Interface
@@ -188,7 +188,9 @@ const STORAGE_KEYS = {
 export function useImageGeneration(config: UseImageGenerationConfig = {}): UseImageGenerationReturn {
   // Merge configuration with defaults
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
-  
+  const supabaseBaseUrl = supabaseConfig.url.replace(/\/+$/, '');
+  const supabaseAnonKey = supabaseConfig.anonKey;
+
   // Core state management
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [generationHistory, setGenerationHistory] = useState<GenerationHistoryEntry[]>([]);
@@ -312,12 +314,12 @@ export function useImageGeneration(config: UseImageGenerationConfig = {}): UseIm
       
       // Make API call to backend
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-88829a40/generate-images`,
+        `${supabaseBaseUrl}/functions/v1/make-server-88829a40/generate-images`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`
+            'Authorization': `Bearer ${supabaseAnonKey}`
           },
           body: JSON.stringify(finalRequest),
           signal: abortControllerRef.current.signal
@@ -394,7 +396,7 @@ export function useImageGeneration(config: UseImageGenerationConfig = {}): UseIm
       setProgress(0);
       abortControllerRef.current = null;
     }
-  }, [preferences, finalConfig, projectId, publicAnonKey]);
+  }, [preferences, finalConfig, supabaseAnonKey, supabaseBaseUrl]);
   
   /**
    * Generate batch of images

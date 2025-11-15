@@ -54,26 +54,33 @@ global.ResizeObserver = class ResizeObserver {
 // Mock scrollTo
 window.scrollTo = vi.fn();
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
-global.localStorage = localStorageMock as any;
+// Mock Storage implementation with persistence for tests
+class MemoryStorage {
+  private store = new Map<string, string>();
 
-// Mock sessionStorage
-const sessionStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
-global.sessionStorage = sessionStorageMock as any;
+  get length() {
+    return this.store.size;
+  }
 
-// Mock fetch
-global.fetch = vi.fn();
+  key = vi.fn((index: number) => Array.from(this.store.keys())[index] ?? null);
+
+  getItem = vi.fn((key: string) => (this.store.has(key) ? this.store.get(key)! : null));
+
+  setItem = vi.fn((key: string, value: string) => {
+    this.store.set(key, String(value));
+  });
+
+  removeItem = vi.fn((key: string) => {
+    this.store.delete(key);
+  });
+
+  clear = vi.fn(() => {
+    this.store.clear();
+  });
+}
+
+global.localStorage = new MemoryStorage() as any;
+global.sessionStorage = new MemoryStorage() as any;
 
 // Console error/warning tracking
 const originalError = console.error;
@@ -105,8 +112,8 @@ afterEach(() => {
 });
 
 // Mock environment variables
-process.env.NODE_ENV = 'test';
-process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
-process.env.VITE_SUPABASE_ANON_KEY = 'test-key';
+process.env.NODE_ENV = process.env.NODE_ENV || 'test';
+process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://demo.supabase.co';
+process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'demo-key';
 
 export {};

@@ -348,7 +348,7 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
       // Try Supabase authentication with timeout and retry
       let supabase;
       try {
-        const supabaseModule = await import('../../utils/supabase/client');
+        const supabaseModule = await import('../../lib/supabase');
         supabase = supabaseModule.supabase;
       } catch (importError) {
         console.error('Failed to load Supabase client:', importError);

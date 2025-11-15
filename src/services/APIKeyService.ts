@@ -1,4 +1,4 @@
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { supabaseConfig } from '../lib/supabase';
 
 /**
  * FlashFusion API Key Service
@@ -155,12 +155,20 @@ class APIKeyServiceClass {
   private async fetchAPIKeys(): Promise<void> {
     try {
       // Call the Supabase function to get environment variables
+      if (supabaseConfig.isDemoMode) {
+        console.warn('Supabase API keys unavailable in demo mode; using fallback environment variables.');
+        this.loadFallbackKeys();
+        return;
+      }
+
+      const supabaseBaseUrl = supabaseConfig.url.replace(/\/+$/, '');
+
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-88829a40/api-keys`,
+        `${supabaseBaseUrl}/functions/v1/make-server-88829a40/api-keys`,
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
+            'Authorization': `Bearer ${supabaseConfig.anonKey}`,
             'Content-Type': 'application/json'
           }
         }

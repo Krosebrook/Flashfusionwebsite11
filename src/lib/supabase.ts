@@ -1,14 +1,78 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables with fallbacks for development
-const supabaseUrl = (typeof window !== 'undefined' && window.location?.origin) 
-  ? (import.meta?.env?.VITE_SUPABASE_URL || 'https://demo.supabase.co')
-  : 'https://demo.supabase.co';
+const FALLBACK_SUPABASE_URL = 'https://demo.supabase.co';
+const FALLBACK_SUPABASE_ANON_KEY = 'demo-key';
+const FALLBACK_PROJECT_ID = 'demo';
 
-const supabaseAnonKey = import.meta?.env?.VITE_SUPABASE_ANON_KEY || 'demo-key';
+const readEnv = (key: string): string | undefined => {
+  const viteEnv = typeof import.meta !== 'undefined' && typeof import.meta.env !== 'undefined'
+    ? (import.meta.env as Record<string, string | undefined>)[key]
+    : undefined;
 
-// Check if we're using demo/fallback values
-const isDemoMode = supabaseUrl === 'https://demo.supabase.co' || supabaseAnonKey === 'demo-key';
+  if (typeof viteEnv === 'string' && viteEnv.trim().length > 0) {
+    return viteEnv.trim();
+  }
+
+  if (typeof process !== 'undefined' && process.env) {
+    const processValue = process.env[key];
+    if (typeof processValue === 'string' && processValue.trim().length > 0) {
+      return processValue.trim();
+    }
+  }
+
+  return undefined;
+};
+
+const ensureUrlHasProtocol = (value: string): string => {
+  if (!/^https?:\/\//i.test(value)) {
+    return `https://${value}`;
+  }
+  return value;
+};
+
+const deriveProjectId = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    const [maybeProjectId] = parsed.hostname.split('.');
+    if (!maybeProjectId) {
+      return null;
+    }
+
+    if (parsed.hostname.endsWith('.supabase.co')) {
+      return maybeProjectId;
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('Failed to derive Supabase project id from URL:', error);
+    return null;
+  }
+};
+
+const rawUrl = readEnv('VITE_SUPABASE_URL') || FALLBACK_SUPABASE_URL;
+const supabaseUrl = ensureUrlHasProtocol(rawUrl).replace(/\/+$/, '');
+const supabaseAnonKey = readEnv('VITE_SUPABASE_ANON_KEY') || FALLBACK_SUPABASE_ANON_KEY;
+const explicitProjectId = readEnv('VITE_SUPABASE_PROJECT_ID');
+const projectId = explicitProjectId || deriveProjectId(supabaseUrl) || FALLBACK_PROJECT_ID;
+
+const isDemoMode =
+  supabaseUrl === FALLBACK_SUPABASE_URL ||
+  supabaseAnonKey === FALLBACK_SUPABASE_ANON_KEY ||
+  projectId === FALLBACK_PROJECT_ID;
+
+export interface SupabaseConfiguration {
+  url: string;
+  anonKey: string;
+  projectId: string;
+  isDemoMode: boolean;
+}
+
+export const supabaseConfig: SupabaseConfiguration = {
+  url: supabaseUrl,
+  anonKey: supabaseAnonKey,
+  projectId,
+  isDemoMode,
+};
 
 // Only show warning once per session
 if (isDemoMode && typeof window !== 'undefined' && !sessionStorage.getItem('ff-demo-warning-shown')) {
@@ -18,7 +82,9 @@ if (isDemoMode && typeof window !== 'undefined' && !sessionStorage.getItem('ff-d
 }
 
 // Mock Supabase client for demo mode
-const createMockSupabaseClient = () => {
+type SupabaseClientType = ReturnType<typeof createClient<Database>>;
+
+const createMockSupabaseClient = (): SupabaseClientType => {
   return {
     auth: {
       signUp: async () => ({ data: null, error: { message: 'Demo mode - Sign up disabled' } }),
@@ -74,13 +140,13 @@ const createMockSupabaseClient = () => {
         })
       })
     })
-  };
+  } as unknown as SupabaseClientType;
 };
 
 // Create either real or mock client based on configuration
-export const supabase = isDemoMode 
+export const supabase: SupabaseClientType = supabaseConfig.isDemoMode
   ? createMockSupabaseClient()
-  : createClient(supabaseUrl, supabaseAnonKey, {
+  : createClient<Database>(supabaseConfig.url, supabaseConfig.anonKey, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,

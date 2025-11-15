@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Checkbox } from '../ui/checkbox';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
-import { supabase } from '../../utils/supabase/client';
+import { supabase } from '../../lib/supabase';
 import { 
   Eye, 
   EyeOff, 

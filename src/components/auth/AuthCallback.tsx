@@ -9,7 +9,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../utils/supabase/client';
+import { supabase } from '../../lib/supabase';
 import { LoadingState } from '../core/app-states/LoadingState';
 import { ErrorState } from '../core/app-states/ErrorState';
 import { useAuthentication } from '../../hooks/useAuthentication';

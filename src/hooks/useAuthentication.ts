@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { supabase, supabaseConfig } from '../lib/supabase';
 
 export interface AuthUser {
   id: string;
@@ -28,6 +29,10 @@ export interface AuthState {
 }
 
 export function useAuthentication() {
+  const supabaseBaseUrl = supabaseConfig.url.replace(/\/+$/, '');
+  const supabaseAnonKey = supabaseConfig.anonKey;
+  const supabaseIsDemo = supabaseConfig.isDemoMode;
+
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
@@ -74,42 +79,42 @@ export function useAuthentication() {
       
       // Try Supabase if available, otherwise fallback to no auth
       try {
-        // Dynamic import to handle cases where Supabase isn't available
-        const { supabase } = await import('../utils/supabase/client').catch(() => ({ supabase: null }));
-        
-        if (supabase) {
-          const { data: { session }, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.warn('⚠️ Session check error:', error.message);
-            throw error;
-          }
-          
-          if (session?.user) {
-            console.log('✅ Valid Supabase session found for user:', session.user.email);
-            
-            const user: AuthUser = {
-              id: session.user.id,
-              email: session.user.email || '',
-              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-              avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`,
-              role: 'user',
-              subscription: 'free'
-            };
+        const {
+          data: { session },
+          error
+        } = await supabase.auth.getSession();
 
-            setAuthState({
-              user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-              isInitialized: true
-            });
-            
-            // Store session data
+        if (error) {
+          console.warn('⚠️ Session check error:', error.message);
+          throw error;
+        }
+
+        if (session?.user) {
+          console.log('✅ Valid Supabase session found for user:', session.user.email);
+
+          const user: AuthUser = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`,
+            role: 'user',
+            subscription: 'free'
+          };
+
+          setAuthState({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+            isInitialized: true
+          });
+
+          // Store session data
+          if (session.access_token) {
             localStorage.setItem('ff-auth-token', session.access_token);
-            localStorage.setItem('ff-remember-user', JSON.stringify(user));
-            return;
           }
+          localStorage.setItem('ff-remember-user', JSON.stringify(user));
+          return;
         }
       } catch (supabaseError) {
         console.warn('⚠️ Supabase not available or failed:', supabaseError);
@@ -139,24 +144,15 @@ export function useAuthentication() {
         isInitialized: true
       });
     }
-  }, []);
+  }, [supabase]);
 
   const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Try to get project info for API calls
-      let projectId: string;
-      let publicAnonKey: string;
-      
-      try {
-        const supabaseInfo = await import('../utils/supabase/info');
-        projectId = supabaseInfo.projectId;
-        publicAnonKey = supabaseInfo.publicAnonKey;
-      } catch (importError) {
-        console.warn('⚠️ Supabase info not available, using fallback auth');
-        
-        // Simulate successful login for demo purposes
+      if (supabaseIsDemo || !supabaseAnonKey || supabaseAnonKey === 'demo-key') {
+        console.warn('⚠️ Supabase running in demo mode, using fallback auth');
+
         const mockUser: AuthUser = {
           id: 'demo-user-' + Date.now(),
           email,
@@ -165,9 +161,9 @@ export function useAuthentication() {
           role: 'user',
           subscription: 'free'
         };
-        
+
         const mockToken = btoa(JSON.stringify({ userId: mockUser.id, exp: Date.now() + 86400000 }));
-        
+
         localStorage.setItem('ff-auth-token', mockToken);
         if (rememberMe) {
           localStorage.setItem('ff-remember-user', JSON.stringify(mockUser));
@@ -183,17 +179,17 @@ export function useAuthentication() {
 
         return { success: true, user: mockUser };
       }
-      
+
       // Real authentication API call with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
-      
+
       try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-88829a40/auth/login`, {
+        const response = await fetch(`${supabaseBaseUrl}/functions/v1/make-server-88829a40/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`
+            'Authorization': `Bearer ${supabaseAnonKey}`
           },
           body: JSON.stringify({ email, password, rememberMe }),
           signal: controller.signal
@@ -251,8 +247,10 @@ export function useAuthentication() {
         });
 
         return { success: true, user: demoUser };
+      } finally {
+        clearTimeout(timeoutId);
       }
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       
@@ -264,7 +262,7 @@ export function useAuthentication() {
       }));
       return { success: false, error: errorMessage };
     }
-  }, []);
+  }, [supabaseAnonKey, supabaseBaseUrl, supabaseIsDemo]);
 
   const logout = useCallback(async () => {
     try {
@@ -272,11 +270,11 @@ export function useAuthentication() {
       
       console.log('🚪 Signing out...');
       
-      // Try to sign out from Supabase if available
+      // Try to sign out from Supabase
       try {
-        const { supabase } = await import('../utils/supabase/client').catch(() => ({ supabase: null }));
-        if (supabase) {
-          await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.warn('⚠️ Supabase signout warning:', error.message);
         }
       } catch (supabaseError) {
         console.warn('⚠️ Supabase signout warning:', supabaseError);
@@ -313,7 +311,7 @@ export function useAuthentication() {
       
       return { success: true };
     }
-  }, []);
+  }, [supabase]);
 
   const clearError = useCallback(() => {
     setAuthState(prev => ({ ...prev, error: null }));
