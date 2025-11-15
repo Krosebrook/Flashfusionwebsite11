@@ -24,6 +24,12 @@ FlashFusion is a comprehensive AI-powered development platform that enables user
 - Adjusted @radix-ui/react-tabs to compatible version ^1.1.0
 - Environment variables configured through Replit Secrets (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
 - Successfully verified app launches without errors
+- **Deployment Configuration Added**:
+  - Build command: `npm run build` (compiles production-ready static files)
+  - Run command: `npm start` (serves built files via `serve` on port 5000)
+  - Deployment target: Autoscale (stateless web application)
+  - Added `serve` package for production static file serving
+  - Port mapping: Internal 5000 → External 80 for public access
 
 ## User Preferences
 
