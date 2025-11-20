@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -344,16 +345,9 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
       }
       
       console.log('🔐 Attempting mobile login for:', email);
-      
-      // Try Supabase authentication with timeout and retry
-      let supabase;
-      try {
-        const supabaseModule = await import('../../lib/supabase');
-        supabase = supabaseModule.supabase;
-      } catch (importError) {
-        console.error('Failed to load Supabase client:', importError);
-        throw new Error('Authentication service unavailable. Please try again later.');
-      }
+
+      // Use shared Supabase client
+      const client = supabase;
 
       // Create abort controller for timeout
       const controller = new AbortController();
@@ -362,7 +356,7 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
       }, 30000); // 30 second timeout for mobile
 
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await client.auth.signInWithPassword({
           email,
           password
         });
@@ -403,7 +397,7 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
         // Get user profile with error handling
         let profile = null;
         try {
-          const { data: profileData, error: profileError } = await supabase
+          const { data: profileData, error: profileError } = await client
             .from('user_profiles')
             .select('*')
             .eq('id', data.user.id)

@@ -28,8 +28,12 @@ describe('Supabase auth integration', () => {
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key');
     vi.stubEnv('VITE_SUPABASE_PROJECT_ID', 'test-project');
 
-    const { supabaseConfig } = await import('../../lib/supabase');
+    const { supabaseConfig, supabase } = await import('../../lib/supabase');
+    const utilsBridge = await import('../../utils/supabase/info');
     const baseUrl = supabaseConfig.url.replace(/\/+$/, '');
+
+    expect(utilsBridge.supabaseConfig).toBe(supabaseConfig);
+    expect(utilsBridge.supabase).toBe(supabase);
 
     let receivedAuthHeader: string | null = null;
     let receivedProfileAuth: string | null = null;

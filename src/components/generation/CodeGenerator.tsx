@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../ui/checkbox';
 import { Badge } from '../ui/badge';
 import { Download, Code, Loader2, CheckCircle } from 'lucide-react';
-import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { supabaseConfig } from '../../lib/supabase';
 
 interface GenerationResult {
   generationId: string;
@@ -68,11 +68,11 @@ function CodeGenerator() {
     try {
       const accessToken = localStorage.getItem('ff-auth-token');
       
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-88829a40/generate/code`, {
+      const response = await fetch(`https://${supabaseConfig.projectId}.supabase.co/functions/v1/make-server-88829a40/generate/code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken || publicAnonKey}`
+          'Authorization': `Bearer ${accessToken || supabaseConfig.anonKey}`
         },
         body: JSON.stringify(formData)
       });

@@ -8,6 +8,9 @@
 
 import { supabaseConfig } from '../../lib/supabase';
 
+// Ensure legacy imports share the exact same client + configuration
+export { supabase, supabaseConfig } from '../../lib/supabase';
+
 export const projectId = supabaseConfig.projectId;
 export const publicAnonKey = supabaseConfig.anonKey;
 export const supabaseUrl = supabaseConfig.url;
