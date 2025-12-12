@@ -185,7 +185,7 @@ export function ContentGeneratorTool() {
         setGenerationProgress((i / config.platform.length) * 100);
 
         const prompt = buildContentPrompt(config, platform, platformData);
-        const response = await aiServiceManager.generateContent(prompt, config.contentType);
+        const response = await aiServiceManager.generateContentForType(prompt, config.contentType);
 
         const content = parseContentResponse(response.content, platform);
         const analytics = await analyzeContent(content.content, platform);
@@ -350,7 +350,7 @@ Create engaging, platform-optimized content that resonates with the target audie
     const prompt = buildContentPrompt(config, platform, platformData);
     
     try {
-      const response = await aiServiceManager.generateContent(prompt, config.contentType);
+      const response = await aiServiceManager.generateContentForType(prompt, config.contentType);
       const content = parseContentResponse(response.content, platform);
       const analytics = await analyzeContent(content.content!, platform);
 
