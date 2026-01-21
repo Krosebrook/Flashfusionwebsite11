@@ -396,30 +396,14 @@ Requirements:
 - Ensure code is ready to run without modifications
 - Include necessary imports and dependencies`;
 
-    return this.generateContent({
+    const request: AIRequest = {
       prompt,
       systemPrompt,
       temperature: 0.2,
       maxTokens: 6000
-    });
-  }
+    };
 
-  async generateContent(prompt: string, contentType: string = 'blog'): Promise<AIResponse> {
-    const systemPrompt = `You are a professional content creator specializing in ${contentType} content. Create engaging, high-quality content that:
-
-- Is well-structured and easy to read
-- Includes relevant keywords naturally
-- Has a compelling hook and strong conclusion
-- Matches the target audience and platform
-- Is optimized for engagement and sharing
-- Follows best practices for ${contentType} content`;
-
-    return this.generateContent({
-      prompt,
-      systemPrompt,
-      temperature: 0.8,
-      maxTokens: 4000
-    });
+    return this.generateContent(request);
   }
 
   async analyzeCode(code: string, analysisType: string = 'optimization'): Promise<AIResponse> {
@@ -432,12 +416,34 @@ Requirements:
 - Best practice violations and fixes
 - Refactoring opportunities`;
 
-    return this.generateContent({
+    const request: AIRequest = {
       prompt: `Analyze this code:\n\n${code}`,
       systemPrompt,
       temperature: 0.3,
       maxTokens: 4000
-    });
+    };
+
+    return this.generateContent(request);
+  }
+
+  async generateContentForType(prompt: string, contentType: string = 'blog'): Promise<AIResponse> {
+    const systemPrompt = `You are a professional content creator specializing in ${contentType} content. Create engaging, high-quality content that:
+
+- Is well-structured and easy to read
+- Includes relevant keywords naturally
+- Has a compelling hook and strong conclusion
+- Matches the target audience and platform
+- Is optimized for engagement and sharing
+- Follows best practices for ${contentType} content`;
+
+    const request: AIRequest = {
+      prompt,
+      systemPrompt,
+      temperature: 0.8,
+      maxTokens: 4000
+    };
+
+    return this.generateContent(request);
   }
 }
 
