@@ -57,6 +57,7 @@ describe('checkAuthenticationStatus', () => {
 
     const state = await checkAuthenticationStatus();
 
+    expect(getSessionMock).toHaveBeenCalledTimes(1);
     expect(state.isAuthenticated).toBe(false);
     expect(state.user).toBeNull();
   });
@@ -89,5 +90,32 @@ describe('checkAuthenticationStatus', () => {
     expect(state.user?.roles).toContain('admin');
     expect(state.user?.roles).toContain('pro');
     expect(state.session).toBe(session);
+  });
+
+  it('does not trust user-metadata roles when app_metadata is absent', async () => {
+    const session = createSession({
+      user: {
+        id: 'user-metadata-only',
+        app_metadata: {},
+        user_metadata: { role: 'admin', roles: ['admin'] },
+        aud: 'authenticated',
+        email: 'user@example.com',
+        phone: '',
+        created_at: new Date().toISOString(),
+        role: 'authenticated',
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        factors: [],
+        identities: [],
+        updated_at: new Date().toISOString()
+      }
+    } as Partial<Session>);
+
+    getSessionMock.mockResolvedValue({ data: { session }, error: null });
+
+    const state = await checkAuthenticationStatus();
+
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.user?.roles).toEqual(['authenticated']);
   });
 });

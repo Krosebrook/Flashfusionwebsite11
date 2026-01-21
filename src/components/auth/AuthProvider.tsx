@@ -64,9 +64,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        setAuthState(prev => ({ ...prev, isLoading: true }));
         const initialAuthState = await checkAuthenticationStatus();
-        setAuthState(initialAuthState);
-        handleAuthStateChange(initialAuthState);
+        setAuthState({ ...initialAuthState, isLoading: false });
+        handleAuthStateChange({ ...initialAuthState, isLoading: false });
       } catch (error) {
         console.error('Auth initialization failed:', error);
         setAuthState({
@@ -86,21 +87,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Subscribe to Supabase auth state changes
   useEffect(() => {
-    const subscription = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        const nextState = createAuthStateFromSession(session);
-        setAuthState(prev => ({ ...nextState, isLoading: false }));
-        handleAuthStateChange(nextState);
-      } else {
-        const signedOutState: AuthState = {
-          isAuthenticated: false,
-          isLoading: false,
-          user: null,
-          session: null
-        };
-        setAuthState(signedOutState);
-        handleAuthStateChange(signedOutState);
+    const subscription = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+
+      const resolvedSession = session ?? (await supabase.auth.getSession()).data?.session ?? null;
+
+      if (resolvedSession) {
+        const nextState = createAuthStateFromSession(resolvedSession);
+        setAuthState({ ...nextState, isLoading: false });
+        handleAuthStateChange({ ...nextState, isLoading: false });
+        return;
       }
+
+      const signedOutState: AuthState = {
+        isAuthenticated: false,
+        isLoading: false,
+        user: null,
+        session: null
+      };
+      setAuthState(signedOutState);
+      handleAuthStateChange(signedOutState);
     });
 
     return () => {
@@ -190,7 +196,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       };
 
       setAuthState(newAuthState);
-      handleAuthStateChange(newAuthState);
+      handleAuthStateChange({ ...newAuthState, isLoading: false });
 
       window.location.href = '/';
     }
@@ -199,9 +205,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Refresh authentication state
   const refreshAuth = useCallback(async () => {
     try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
       const newAuthState = await checkAuthenticationStatus();
-      setAuthState(newAuthState);
-      handleAuthStateChange(newAuthState);
+      setAuthState({ ...newAuthState, isLoading: false });
+      handleAuthStateChange({ ...newAuthState, isLoading: false });
     } catch (error) {
       console.error('Auth refresh failed:', error);
       setAuthState(prev => ({ ...prev, error: 'Authentication refresh failed' }));
@@ -292,10 +299,14 @@ export function useAuth() {
  */
 export function useRouteProtection(requiredPermission?: string) {
   const auth = useAuth();
-  
+
   useEffect(() => {
+    if (auth.isLoading || !auth.isInitialized) {
+      return;
+    }
+
     const { canAccess, redirectUrl } = auth.getRouteAccess();
-    
+
     if (!canAccess && redirectUrl) {
       window.location.href = redirectUrl;
       return;
@@ -306,11 +317,11 @@ export function useRouteProtection(requiredPermission?: string) {
       return;
     }
   }, [auth, requiredPermission]);
-  
+
   return {
     isAuthenticated: auth.isAuthenticated,
     isLoading: auth.isLoading,
-    hasAccess: auth.getRouteAccess().canAccess && (!requiredPermission || auth.hasPermission(requiredPermission))
+    hasAccess: !auth.isLoading && auth.getRouteAccess().canAccess && (!requiredPermission || auth.hasPermission(requiredPermission))
   };
 }
 

@@ -142,24 +142,17 @@ export async function clearAuthData(): Promise<void> {
  */
 export function getRouteProtectionLevel(path?: string): RouteProtectionLevel {
   const currentPath = path || (typeof window !== 'undefined' ? window.location.pathname : '/');
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
 
   // Check admin routes
   if (ADMIN_ROUTES.some(route => currentPath.startsWith(route))) {
     return 'admin';
   }
-  
+
   // Check protected routes
   if (PROTECTED_ROUTES.some(route => currentPath.startsWith(route))) {
     return 'protected';
   }
-  
-  // Check if explicitly requesting app access
-  const showApp = searchParams.has('app') || localStorage.getItem('ff-show-app') === 'true';
-  if (showApp && !PUBLIC_ROUTES.some(route => currentPath === route || currentPath.startsWith(route + '/'))) {
-    return 'protected';
-  }
-  
+
   // Default to public
   return 'public';
 }
@@ -279,11 +272,10 @@ export function createAuthStateFromSession(session: Session): AuthState {
 
 function extractRolesFromSession(session: Session): string[] {
   const appMetadata = session.user.app_metadata ?? {};
-  const userMetadata = session.user.user_metadata ?? {};
 
   const claimsRole = (appMetadata as Record<string, any>)?.claims?.role;
-  const directRole = (appMetadata as Record<string, any>)?.role ?? userMetadata?.role;
-  const rolesClaim = (appMetadata as Record<string, any>)?.roles ?? userMetadata?.roles;
+  const directRole = (appMetadata as Record<string, any>)?.role ?? session.user.role;
+  const rolesClaim = (appMetadata as Record<string, any>)?.roles;
 
   const collectedRoles: Array<string | undefined | string[]> = [
     claimsRole,
