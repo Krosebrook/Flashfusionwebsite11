@@ -208,4 +208,50 @@ describe('Supabase auth integration', () => {
 
     reloadSpy.mockRestore();
   });
+
+  it('uses the shared demo-mode flow without hitting Supabase when demo credentials are supplied', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('VITE_SUPABASE_PROJECT_ID', '');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const { supabase, supabaseConfig } = await import('../../lib/supabase');
+    expect(supabaseConfig.isDemoMode).toBe(true);
+    const signInSpy = vi.spyOn(supabase.auth, 'signInWithPassword');
+
+    const { AuthenticationSystem } = await import('../../components/auth/AuthenticationSystem');
+    const onAuthSuccess = vi.fn();
+    const onAuthError = vi.fn();
+
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    render(
+      <AuthenticationSystem
+        onAuthSuccess={onAuthSuccess}
+        onAuthError={onAuthError}
+      />,
+    );
+
+    const emailInput = screen.getAllByPlaceholderText('Enter your email')[0];
+    const passwordInput = screen.getAllByPlaceholderText('Enter your password')[0];
+    const captchaInput = screen.getByPlaceholderText('Answer');
+
+    fireEvent.change(emailInput, { target: { value: 'demo@flashfusion.ai' } });
+    fireEvent.change(passwordInput, { target: { value: 'demo123' } });
+    fireEvent.change(captchaInput, { target: { value: '2' } });
+
+    const signInButton = screen.getByRole('button', { name: /sign in/i });
+    fireEvent.click(signInButton);
+
+    await waitFor(() => expect(onAuthSuccess).toHaveBeenCalled());
+
+    expect(onAuthError).not.toHaveBeenCalled();
+    expect(signInSpy).not.toHaveBeenCalled();
+    expect(onAuthSuccess.mock.calls[0][0]).toMatchObject({ email: 'demo@flashfusion.ai' });
+
+    randomSpy.mockRestore();
+    consoleSpy.mockRestore();
+  });
 });

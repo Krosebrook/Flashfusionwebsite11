@@ -6,10 +6,11 @@
  * application converges on a single configuration source.
  */
 
-import { supabaseConfig } from '../../lib/supabase';
+import { supabaseConfig, type SupabaseConfiguration } from '../../lib/supabase';
 
 // Ensure legacy imports share the exact same client + configuration
 export { supabase, supabaseConfig } from '../../lib/supabase';
+export type { SupabaseConfiguration };
 
 export const projectId = supabaseConfig.projectId;
 export const publicAnonKey = supabaseConfig.anonKey;

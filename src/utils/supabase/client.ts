@@ -8,8 +8,9 @@
  * Supabase client setup with proper configuration for authentication
  */
 
-import { supabase, supabaseConfig } from '../../lib/supabase';
+import { supabase, supabaseConfig, type SupabaseConfiguration } from '../../lib/supabase';
 
 export { supabase, supabaseConfig };
+export type { SupabaseConfiguration };
 
 export default supabase;
