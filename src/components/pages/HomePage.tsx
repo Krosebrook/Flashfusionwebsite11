@@ -10,6 +10,7 @@ import UserInteractionEngine from '../interactions/UserInteractionEngine';
 import InfrastructureValidator from '../validation/InfrastructureValidator';
 import WorkflowTest from '../ui/workflow-test';
 import PlatformVerification from '../ui/platform-verification';
+import { getSecureAccessToken } from '../../utils/auth-protection';
 import { 
   Zap, 
   Users, 
@@ -41,8 +42,7 @@ export function HomePage({ onPageChange }: HomePageProps = {}) {
 
   // Check authentication status
   useEffect(() => {
-    const authToken = localStorage.getItem('ff-auth-token');
-    setIsAuthenticated(!!authToken);
+    getSecureAccessToken().then(token => setIsAuthenticated(!!token));
   }, []);
 
   const handleValidationComplete = (results: { passed: number; failed: number; warnings: number }) => {
@@ -87,33 +87,6 @@ export function HomePage({ onPageChange }: HomePageProps = {}) {
   const handleSignup = (email: string) => {
     console.log('User signup:', email);
     // Enhanced user signup process with realistic onboarding flow
-    localStorage.setItem('ff-signup-email', email);
-    
-    // Create comprehensive new user profile
-    const newUser = {
-      id: `user_${Date.now()}`,
-      email,
-      name: email.split('@')[0],
-      onboardingCompleted: false,
-      signupDate: new Date().toISOString(),
-      plan: 'free',
-      persona: null, // Will be set during onboarding
-      preferences: {
-        notifications: true,
-        theme: 'system',
-        language: 'en'
-      },
-      stats: {
-        projectsCreated: 0,
-        toolsUsed: 0,
-        timeSpent: 0
-      }
-    };
-    
-    // Store user data and auth token
-    localStorage.setItem('ff-user-profile', JSON.stringify(newUser));
-    localStorage.setItem('ff-auth-token', `demo_${Date.now()}`);
-    localStorage.setItem('ff-onboarding-completed', 'false'); // Ensure onboarding triggers
     setIsAuthenticated(true);
     
     // Trigger page refresh to start workflow orchestrator

@@ -20,6 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { supabaseConfig } from '../../lib/supabase';
+import { getSecureAccessToken } from '../../utils/auth-protection';
 
 interface Deployment {
   id: string;
@@ -71,7 +72,7 @@ function CICDPipelineIntegration() {
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem('ff-auth-token');
+      const accessToken = await getSecureAccessToken();
       
       const response = await fetch(`https://${supabaseConfig.projectId}.supabase.co/functions/v1/make-server-88829a40/cicd/deploy`, {
         method: 'POST',

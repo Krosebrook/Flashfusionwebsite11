@@ -52,31 +52,6 @@ export function useAuthentication() {
       
       console.log('🔍 Checking authentication status...');
       
-      // Check for stored session first (faster)
-      const token = localStorage.getItem('ff-auth-token');
-      const rememberedUser = localStorage.getItem('ff-remember-user');
-      
-      if (token && rememberedUser) {
-        try {
-          const user = JSON.parse(rememberedUser);
-          console.log('📱 Using stored user session for:', user.email);
-          
-          setAuthState({
-            user,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-            isInitialized: true
-          });
-          return;
-        } catch (parseError) {
-          console.error('Error parsing stored user data:', parseError);
-          // Clear invalid stored data
-          localStorage.removeItem('ff-auth-token');
-          localStorage.removeItem('ff-remember-user');
-        }
-      }
-      
       // Try Supabase if available, otherwise fallback to no auth
       try {
         const {
@@ -108,12 +83,6 @@ export function useAuthentication() {
             error: null,
             isInitialized: true
           });
-
-          // Store session data
-          if (session.access_token) {
-            localStorage.setItem('ff-auth-token', session.access_token);
-          }
-          localStorage.setItem('ff-remember-user', JSON.stringify(user));
           return;
         }
       } catch (supabaseError) {
@@ -164,11 +133,6 @@ export function useAuthentication() {
 
         const mockToken = btoa(JSON.stringify({ userId: mockUser.id, exp: Date.now() + 86400000 }));
 
-        localStorage.setItem('ff-auth-token', mockToken);
-        if (rememberMe) {
-          localStorage.setItem('ff-remember-user', JSON.stringify(mockUser));
-        }
-
         setAuthState({
           user: mockUser,
           isAuthenticated: true,
@@ -204,11 +168,6 @@ export function useAuthentication() {
 
         const { user, token } = await response.json();
 
-        localStorage.setItem('ff-auth-token', token);
-        if (rememberMe) {
-          localStorage.setItem('ff-remember-user', JSON.stringify(user));
-        }
-
         setAuthState({
           user,
           isAuthenticated: true,
@@ -233,11 +192,6 @@ export function useAuthentication() {
         
         const demoToken = btoa(JSON.stringify({ userId: demoUser.id, exp: Date.now() + 86400000 }));
         
-        localStorage.setItem('ff-auth-token', demoToken);
-        if (rememberMe) {
-          localStorage.setItem('ff-remember-user', JSON.stringify(demoUser));
-        }
-
         setAuthState({
           user: demoUser,
           isAuthenticated: true,
@@ -280,10 +234,6 @@ export function useAuthentication() {
         console.warn('⚠️ Supabase signout warning:', supabaseError);
       }
       
-      // Clear stored auth data
-      localStorage.removeItem('ff-auth-token');
-      localStorage.removeItem('ff-remember-user');
-      
       console.log('✅ Logout successful');
       
       setAuthState({
@@ -297,10 +247,6 @@ export function useAuthentication() {
       return { success: true };
     } catch (error) {
       console.error('Logout failed:', error);
-      // Force logout even if API call fails
-      localStorage.removeItem('ff-auth-token');
-      localStorage.removeItem('ff-remember-user');
-      
       setAuthState({
         user: null,
         isAuthenticated: false,

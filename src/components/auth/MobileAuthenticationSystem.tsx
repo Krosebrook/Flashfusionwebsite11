@@ -337,7 +337,6 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
         // Store demo user data with mobile-safe storage
         if (rememberMe) {
           storage.setItem('ff-remember-user', JSON.stringify(demoUser));
-          storage.setItem('ff-auth-token', 'demo-token-' + Date.now());
         }
 
         onAuthSuccess(demoUser);
@@ -432,7 +431,6 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
         // Store user data if remember me is checked
         if (rememberMe) {
           storage.setItem('ff-remember-user', JSON.stringify(user));
-          storage.setItem('ff-auth-token', data.session?.access_token || '');
         }
 
         onAuthSuccess(user);

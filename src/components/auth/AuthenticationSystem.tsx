@@ -226,12 +226,6 @@ export function AuthenticationSystem({ onAuthSuccess, onAuthError, onClose }: Au
           error: null
         });
 
-        // Store demo user data
-        if (rememberMe) {
-          localStorage.setItem('ff-remember-user', JSON.stringify(demoUser));
-          localStorage.setItem('ff-auth-token', 'demo-token-' + Date.now());
-        }
-
         onAuthSuccess(demoUser);
         return;
       }
@@ -291,12 +285,6 @@ export function AuthenticationSystem({ onAuthSuccess, onAuthError, onClose }: Au
         isLoading: false,
         error: null
       });
-
-      // Store user data if remember me is checked
-      if (rememberMe) {
-        localStorage.setItem('ff-remember-user', JSON.stringify(user));
-        localStorage.setItem('ff-auth-token', data.session?.access_token || '');
-      }
 
       onAuthSuccess(user);
     } catch (error) {

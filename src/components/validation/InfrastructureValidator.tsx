@@ -4,10 +4,10 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { 
-  CheckCircle, 
-  AlertCircle, 
-  XCircle, 
+import {
+  CheckCircle,
+  AlertCircle,
+  XCircle,
   Clock, 
   Zap, 
   Shield, 
@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Activity
 } from 'lucide-react';
+import { getSecureAccessToken } from '../../utils/auth-protection';
 
 interface ValidationCheck {
   id: string;
@@ -357,10 +358,8 @@ export function InfrastructureValidator({
   const validateAuthenticationFlow = async () => {
     try {
       // Test authentication state management
-      const authToken = localStorage.getItem('ff-auth-token');
-      const canSetToken = localStorage.setItem('ff-test-token', 'test');
-      localStorage.removeItem('ff-test-token');
-      
+      const authToken = await getSecureAccessToken();
+
       return { success: true, data: { hasExistingAuth: !!authToken } };
     } catch (error) {
       return { success: false, error: 'Authentication flow validation failed' };

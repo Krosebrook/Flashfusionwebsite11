@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Alert } from '../ui/alert';
+import { clearAuthData, getSecureAccessToken } from '../../utils/auth-protection';
 
 interface ErrorInfo {
   id: string;
@@ -117,7 +118,7 @@ export function useErrorRecovery() {
 
     try {
       // Check authentication
-      const token = localStorage.getItem('ff-auth-token');
+      const token = await getSecureAccessToken();
       if (!token) {
         health.components.authentication = 'degraded';
       }
@@ -210,8 +211,7 @@ export function useErrorRecovery() {
       severity: 'medium',
       action: async () => {
         try {
-          localStorage.removeItem('ff-auth-token');
-          localStorage.removeItem('ff-remember-user');
+          await clearAuthData();
           // Trigger auth flow
           window.location.href = '/?auth=true';
           return true;

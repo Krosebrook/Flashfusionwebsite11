@@ -10,6 +10,7 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { clearAuthData } from '../../utils/auth-protection';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -154,15 +155,13 @@ export class AuthErrorBoundary extends Component<Props, State> {
 
   private handleClearStorage = () => {
     try {
-      // Clear all auth-related storage
+      // Clear all auth-related storage via Supabase-managed session handling
+      void clearAuthData();
       const keysToRemove = [
-        'ff-auth-token',
-        'ff-remember-user',
         'ff-auth-errors',
-        'ff-session-data',
-        'supabase.auth.token'
+        'ff-session-data'
       ];
-      
+
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
         sessionStorage.removeItem(key);

@@ -55,6 +55,39 @@ const supabaseAnonKey = readEnv('VITE_SUPABASE_ANON_KEY') || FALLBACK_SUPABASE_A
 const explicitProjectId = readEnv('VITE_SUPABASE_PROJECT_ID');
 const projectId = explicitProjectId || deriveProjectId(supabaseUrl) || FALLBACK_PROJECT_ID;
 
+const isBrowser = typeof window !== 'undefined';
+
+const parseCookie = (key: string): string | null => {
+  if (!isBrowser || typeof document === 'undefined') {
+    return null;
+  }
+
+  const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+  const match = cookies.find(cookie => cookie.startsWith(`${key}=`));
+  return match ? decodeURIComponent(match.split('=')[1]) : null;
+};
+
+const cookieStorage = {
+  getItem: (key: string) => parseCookie(key),
+  setItem: (key: string, value: string) => {
+    if (!isBrowser || typeof document === 'undefined') {
+      return;
+    }
+
+    const expires = new Date();
+    expires.setFullYear(expires.getFullYear() + 1);
+
+    document.cookie = `${key}=${encodeURIComponent(value)}; path=/; expires=${expires.toUTCString()}; SameSite=Strict; Secure`;
+  },
+  removeItem: (key: string) => {
+    if (!isBrowser || typeof document === 'undefined') {
+      return;
+    }
+
+    document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
+  }
+};
+
 const isDemoMode =
   supabaseUrl === FALLBACK_SUPABASE_URL ||
   supabaseAnonKey === FALLBACK_SUPABASE_ANON_KEY ||
@@ -150,7 +183,9 @@ export const supabase: SupabaseClientType = supabaseConfig.isDemoMode
       auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        storage: cookieStorage,
+        storageKey: `sb-${projectId}-auth-token`
       }
     });
 

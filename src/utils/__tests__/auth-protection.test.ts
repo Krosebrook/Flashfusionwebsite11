@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { checkAuthenticationStatus } from '../auth-protection';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import { checkAuthenticationStatus, getSecureAccessToken } from '../auth-protection';
 
 const getSessionMock = vi.fn();
 const signOutMock = vi.fn();
@@ -41,6 +41,32 @@ function createSession(overrides: Partial<Session> = {}): Session {
     ...overrides
   } as Session;
 }
+
+const createStorage = () => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => (key in store ? store[key] : null),
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    get length() {
+      return Object.keys(store).length;
+    }
+  } as Storage;
+};
+
+beforeAll(() => {
+  vi.stubGlobal('localStorage', createStorage());
+  vi.stubGlobal('sessionStorage', createStorage());
+  vi.stubGlobal('document', { cookie: '' });
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -89,5 +115,15 @@ describe('checkAuthenticationStatus', () => {
     expect(state.user?.roles).toContain('admin');
     expect(state.user?.roles).toContain('pro');
     expect(state.session).toBe(session);
+  });
+
+  it('ignores XSS-style token injection in localStorage when fetching secure token', async () => {
+    localStorage.setItem('ff-auth-token', '<script>alert(1)</script>');
+    getSessionMock.mockResolvedValue({ data: { session: null }, error: null });
+
+    const token = await getSecureAccessToken();
+
+    expect(token).toBeNull();
+    expect(getSessionMock).toHaveBeenCalled();
   });
 });

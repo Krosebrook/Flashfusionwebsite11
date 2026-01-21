@@ -121,6 +121,22 @@ export async function checkAuthenticationStatus(): Promise<AuthState> {
   }
 }
 
+export async function getSecureSession(): Promise<Session | null> {
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error('Supabase session retrieval failed:', error);
+    return null;
+  }
+
+  return data?.session ?? null;
+}
+
+export async function getSecureAccessToken(): Promise<string | null> {
+  const session = await getSecureSession();
+  return session?.access_token ?? null;
+}
+
 /**
  * Clear all authentication data from storage
  */
@@ -132,9 +148,21 @@ export async function clearAuthData(): Promise<void> {
     }
   } catch (error) {
     console.error('Failed to clear authentication data:', error);
-  } finally {
-    localStorage.removeItem('ff-show-app');
   }
+}
+
+export async function storeAuthData(session: Session | null): Promise<AuthState> {
+  if (!session) {
+    await clearAuthData();
+    return {
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      session: null
+    };
+  }
+
+  return createAuthStateFromSession(session);
 }
 
 /**
@@ -155,7 +183,7 @@ export function getRouteProtectionLevel(path?: string): RouteProtectionLevel {
   }
   
   // Check if explicitly requesting app access
-  const showApp = searchParams.has('app') || localStorage.getItem('ff-show-app') === 'true';
+  const showApp = searchParams.has('app');
   if (showApp && !PUBLIC_ROUTES.some(route => currentPath === route || currentPath.startsWith(route + '/'))) {
     return 'protected';
   }
@@ -312,7 +340,10 @@ function extractRolesFromSession(session: Session): string[] {
 
 export default {
   checkAuthenticationStatus,
+  storeAuthData,
   clearAuthData,
+  getSecureSession,
+  getSecureAccessToken,
   getRouteProtectionLevel,
   hasRoutePermission,
   getAuthRedirectUrl,

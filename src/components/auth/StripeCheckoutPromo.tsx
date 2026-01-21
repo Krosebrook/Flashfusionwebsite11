@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Separator } from '../ui/separator';
-import { 
+import {
   CreditCard,
   Shield,
   Lock,
@@ -33,6 +33,7 @@ import {
   ArrowRight,
   Info
 } from 'lucide-react';
+import { getSecureAccessToken } from '../../utils/auth-protection';
 
 interface StripeCheckoutPromoProps {
   onClose: () => void;
@@ -237,7 +238,7 @@ export function StripeCheckoutPromo({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('ff-auth-token')}`
+          'Authorization': `Bearer ${await getSecureAccessToken()}`
         },
         body: JSON.stringify({
           priceId: plan.stripePriceId,

@@ -1,4 +1,5 @@
 import { toast } from 'sonner@2.0.3';
+import { getSecureSession } from '../utils/auth-protection';
 
 export interface AppError {
   type: 'initialization' | 'authentication' | 'network' | 'component' | 'permission' | 'api' | 'validation';
@@ -209,7 +210,7 @@ export class ErrorService {
       const monitoringData = {
         ...errorData,
         sessionId: this.getSessionId(),
-        userId: this.getUserId()
+        userId: await this.getUserId()
       };
 
       localStorage.setItem(
@@ -239,10 +240,9 @@ export class ErrorService {
   /**
    * Get user ID for error tracking
    */
-  private getUserId(): string | null {
-    // In a real app, this would get the actual user ID
-    const authToken = localStorage.getItem('ff-auth-token');
-    return authToken ? `user-${authToken.slice(-8)}` : null;
+  private async getUserId(): Promise<string | null> {
+    const session = await getSecureSession();
+    return session?.user?.id ?? null;
   }
 
   /**

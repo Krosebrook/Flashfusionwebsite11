@@ -103,10 +103,6 @@ export function AuthCallback({ onAuthSuccess, onAuthError }: AuthCallbackProps) 
           subscription: profile?.subscription_tier || 'free'
         };
 
-        // Store user data
-        localStorage.setItem('ff-auth-token', data.session.access_token);
-        localStorage.setItem('ff-remember-user', JSON.stringify(user));
-
         // Update auth status
         await checkAuthStatus();
 
