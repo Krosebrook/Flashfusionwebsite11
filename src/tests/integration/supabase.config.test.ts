@@ -30,6 +30,7 @@ describe('supabase configuration', () => {
 
     const { supabaseConfig, supabase } = await import('../../lib/supabase');
     const utilsBridge = await import('../../utils/supabase/info');
+    const utilsClient = await import('../../utils/supabase/client');
 
     expect(supabaseConfig.url).toBe('https://example.supabase.co');
     expect(supabaseConfig.anonKey).toBe('real-anon-key');
@@ -44,6 +45,9 @@ describe('supabase configuration', () => {
     // Legacy bridge should expose the very same references
     expect(utilsBridge.supabaseConfig).toBe(supabaseConfig);
     expect(utilsBridge.supabase).toBe(supabase);
+    expect(utilsClient.supabaseConfig).toBe(supabaseConfig);
+    expect(utilsClient.supabase).toBe(supabase);
+    expect(createClient).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem('ff-demo-warning-shown')).toBeNull();
   });
 

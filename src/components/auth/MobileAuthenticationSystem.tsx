@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseConfig } from '../../lib/supabase';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -256,6 +256,7 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
+  const isDemoMode = supabaseConfig.isDemoMode;
 
   // Validation states
   const [emailError, setEmailError] = useState('');
@@ -314,7 +315,7 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
       }
 
       // Quick demo mode for testing
-      if (email === 'demo@flashfusion.ai' && password === 'demo123') {
+      if (isDemoMode && email === 'demo@flashfusion.ai' && password === 'demo123') {
         console.log('🎯 Demo login activated');
         
         const demoUser: AuthUser = {
@@ -610,12 +611,14 @@ export function MobileAuthenticationSystem({ onAuthSuccess, onAuthError, onClose
 
                 <TabsContent value="login" className="space-y-6 mt-6">
                   {/* Demo Mode Notice */}
-                  <Alert className="border-[var(--ff-secondary)] bg-[var(--ff-secondary)]/10">
-                    <Zap className="h-4 w-4 text-[var(--ff-secondary)]" />
-                    <AlertDescription className="text-[var(--ff-text-secondary)] text-sm">
-                      <strong className="text-[var(--ff-secondary)]">Quick Demo:</strong> Use <code className="bg-[var(--ff-surface)] px-1 rounded text-xs">demo@flashfusion.ai</code> and <code className="bg-[var(--ff-surface)] px-1 rounded text-xs">demo123</code>
-                    </AlertDescription>
-                  </Alert>
+                  {isDemoMode && (
+                    <Alert className="border-[var(--ff-secondary)] bg-[var(--ff-secondary)]/10">
+                      <Zap className="h-4 w-4 text-[var(--ff-secondary)]" />
+                      <AlertDescription className="text-[var(--ff-text-secondary)] text-sm">
+                        <strong className="text-[var(--ff-secondary)]">Demo mode:</strong> Use <code className="bg-[var(--ff-surface)] px-1 rounded text-xs">demo@flashfusion.ai</code> and <code className="bg-[var(--ff-surface)] px-1 rounded text-xs">demo123</code>
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">

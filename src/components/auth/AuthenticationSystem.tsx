@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Checkbox } from '../ui/checkbox';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseConfig } from '../../lib/supabase';
 import { 
   Eye, 
   EyeOff, 
@@ -143,6 +143,7 @@ export function AuthenticationSystem({ onAuthSuccess, onAuthError, onClose }: Au
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
+  const isDemoMode = supabaseConfig.isDemoMode;
 
   // Validation states
   const [emailError, setEmailError] = useState('');
@@ -207,9 +208,9 @@ export function AuthenticationSystem({ onAuthSuccess, onAuthError, onClose }: Au
 
     try {
       // Quick demo mode for testing
-      if (email === 'demo@flashfusion.ai' && password === 'demo123') {
+      if (isDemoMode && email === 'demo@flashfusion.ai' && password === 'demo123') {
         console.log('🎯 Demo login activated');
-        
+
         const demoUser: AuthUser = {
           id: 'demo-user-001',
           email: 'demo@flashfusion.ai',
@@ -500,12 +501,14 @@ export function AuthenticationSystem({ onAuthSuccess, onAuthError, onClose }: Au
   const renderLoginForm = () => (
     <div className="space-y-6">
       {/* Demo Mode Notice */}
-      <Alert className="border-[var(--ff-secondary)] bg-[var(--ff-secondary)]/10">
-        <Zap className="h-4 w-4 text-[var(--ff-secondary)]" />
-        <AlertDescription className="text-[var(--ff-text-secondary)]">
-          <strong className="text-[var(--ff-secondary)]">Quick Demo:</strong> Use email <code className="bg-[var(--ff-surface)] px-1 rounded">demo@flashfusion.ai</code> and password <code className="bg-[var(--ff-surface)] px-1 rounded">demo123</code> to instantly access the platform.
-        </AlertDescription>
-      </Alert>
+      {isDemoMode && (
+        <Alert className="border-[var(--ff-secondary)] bg-[var(--ff-secondary)]/10">
+          <Zap className="h-4 w-4 text-[var(--ff-secondary)]" />
+          <AlertDescription className="text-[var(--ff-text-secondary)]">
+            <strong className="text-[var(--ff-secondary)]">Demo mode:</strong> Use email <code className="bg-[var(--ff-surface)] px-1 rounded">demo@flashfusion.ai</code> and password <code className="bg-[var(--ff-surface)] px-1 rounded">demo123</code> to instantly access the platform. Supabase calls are simulated until real credentials are provided.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="space-y-4">
         <div className="space-y-2">
